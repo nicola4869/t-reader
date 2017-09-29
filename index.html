@@ -244,11 +244,7 @@
 			</div>
 			<div id="fiction_chapter_title"></div>
 			<div id="fiction_container" class="m-read-content">
-				<h4>第一章 俯瞰风景</h4>
-				<p>那一天，选择了办公区前的大路作为归途。对于自己是很鲜见的，单是心血来潮而已。在见惯的建筑群间呆呆地走着，不多时有人落了下来。没有太多机会听到的，啪嚓这样一声。很明显是有人从楼顶落下来并死去。朱色在柏油路上流淌开来。仍保有原形的是长长的黑发。以及纤细的，让人联想到白色的脆弱手足。之后是已无容貌，破碎的面部。这一连串映像，让人不禁幻想到被挟入古老的书本。化为其中一页的压花。…大概。只有颈部如胎儿般被扭曲的亡骸，在我看来竟如同被折断的百合花。</p>
-				<p>那一天，选择了办公区前的大路作为归途。对于自己是很鲜见的，单是心血来潮而已。在见惯的建筑群间呆呆地走着，不多时有人落了下来。没有太多机会听到的，啪嚓这样一声。很明显是有人从楼顶落下来并死去。朱色在柏油路上流淌开来。仍保有原形的是长长的黑发。以及纤细的，让人联想到白色的脆弱手足。之后是已无容貌，破碎的面部。这一连串映像，让人不禁幻想到被挟入古老的书本。化为其中一页的压花。…大概。只有颈部如胎儿般被扭曲的亡骸，在我看来竟如同被折断的百合花。</p>
-				<p>那一天，选择了办公区前的大路作为归途。对于自己是很鲜见的，单是心血来潮而已。在见惯的建筑群间呆呆地走着，不多时有人落了下来。没有太多机会听到的，啪嚓这样一声。很明显是有人从楼顶落下来并死去。朱色在柏油路上流淌开来。仍保有原形的是长长的黑发。以及纤细的，让人联想到白色的脆弱手足。之后是已无容貌，破碎的面部。这一连串映像，让人不禁幻想到被挟入古老的书本。化为其中一页的压花。…大概。只有颈部如胎儿般被扭曲的亡骸，在我看来竟如同被折断的百合花。</p>
-				<p>那一天，选择了办公区前的大路作为归途。对于自己是很鲜见的，单是心血来潮而已。在见惯的建筑群间呆呆地走着，不多时有人落了下来。没有太多机会听到的，啪嚓这样一声。很明显是有人从楼顶落下来并死去。朱色在柏油路上流淌开来。仍保有原形的是长长的黑发。以及纤细的，让人联想到白色的脆弱手足。之后是已无容貌，破碎的面部。这一连串映像，让人不禁幻想到被挟入古老的书本。化为其中一页的压花。…大概。只有颈部如胎儿般被扭曲的亡骸，在我看来竟如同被折断的百合花。</p>
+
 			</div>
 			<div class="m-button-bar">
 				<ul class="u-tab">
@@ -315,6 +311,7 @@
 		<script src="js/jquery.jsonp.js"></script>
 		<script>
 			(function(){
+				'use strict';
 				var Util = (function(){
 					var prefix = 'html5-reader-';
 					var StorageGetter = function(key){
@@ -331,7 +328,7 @@
 							success:function(result){
 								var data = $.base64.decode(result);
 								var json = decodeURIComponent(escape(data));
-								callback(data);
+								callback(json);
 							}
 						})
 					};
@@ -350,6 +347,8 @@
 				};
 				var Win = $(window);
 				var Don = $(document);
+				var readerModel;
+				var readerUI;
 				var RootContainer = $('#fiction_container');
 				var initialFontSize = parseInt(Util.StorageGetter('font-size'));
 				if(!initialFontSize){
@@ -359,31 +358,64 @@
 
 				function main(){
 					//todo 整个项目的入口函数
-					var readerModel = ReaderModel();
-					readerModel.init();
+					readerModel = ReaderModel();
+					readerUI = ReaderBaseFrame(RootContainer);
+					readerModel.init(function(data){
+						readerUI(data);
+					});
 					EventHandler();
 
 				}
 
 				function ReaderModel(){
+					//todo 实现与阅读器相关的数据交互的方法
 					var Chapter_id;
-					var init = function(){
-						getFictionInfo(function(){
-							getCurChapterContent(Chapter_id,function(){
-								//todo
-							})
+					var ChapterTotal;
+					var init = function(UIcallback){
+//						getFictionInfo(function(){
+//							getCurChapterContent(Chapter_id,function(data){
+//								//todo
+//								UIcallback&&UIcallback(data);
+//							})
+//						})
+						getFictionInfoPromise().then(function(d){
+							return getCurChapterContentPromise();
+						}).then(function(data){
+							UIcallback&&UIcallback(data);
 						})
 					};
-					//todo 实现与阅读器相关的数据交互的方法
 					var getFictionInfo = function(callback){
 						$.get('data/chapter.json',function(data){
 							//todo 获得章节信息后的回调
-							Chapter_id = data.chapters[1].chapter_id;
+							Util.StorageGetter('last_chapter_id');
+							if(Chapter_id == null){
+								Chapter_id = data.chapters[1].chapter_id;
+							}
+							ChapterTotal = data.chapters.length;
 							callback && callback();
 						},'json')
 					};
-					var getCurChapterContent = function(chapter_id,data){
-						$.get('data/data'+chapter_id+'.json',function(){
+
+					var getFictionInfoPromise = function() {
+						return new Promise(function (resolve, reject) {
+							$.get('data/chapter.json', function (data) {
+								//todo 获得章节信息后的回调
+								if (data.result == 0) {
+									Util.StorageGetter('last_chapter_id');
+									if (Chapter_id == null) {
+										Chapter_id = data.chapters[1].chapter_id;
+									}
+									ChapterTotal = data.chapters.length;
+									resolve();
+								} else {
+									reject();
+								}
+							}, 'json')
+						});
+					};
+
+					var getCurChapterContent = function(Chapter_id,callback){
+						$.get('data/data'+Chapter_id+'.json',function(data){
 							if(data.result == 0){
 								var url = data.jsonp;
 								Util.getJSONP(url,function(data){
@@ -392,13 +424,61 @@
 							}
 						},'json')
 					};
+					var getCurChapterContentPromise = function() {
+						return new Promise(function (resolve, reject) {
+							$.get('data/data' + Chapter_id + '.json', function (data) {
+								if (data.result == 0) {
+									var url = data.jsonp;
+									Util.getJSONP(url, function (data) {
+										resolve(data);
+									})
+								} else {
+									reject({msg: 'fail'})
+								}
+							}, 'json')
+						});
+					};
+
+					var prevChapter = function(UIcallback){
+						Chapter_id = parseInt(Chapter_id,10);
+						if(Chapter_id == 0){
+							return;
+						}
+						Chapter_id -= 1;
+						getCurChapterContent(Chapter_id,UIcallback);
+						Util.StorageSetter('last_chapter_id',Chapter_id);
+					};
+
+					var nextChapter = function(UIcallback){
+						Chapter_id = parseInt(Chapter_id,10);
+						if(Chapter_id == ChapterTotal){
+							return;
+						}
+						Chapter_id += 1;
+						getCurChapterContent(Chapter_id,UIcallback);
+						Util.StorageSetter('last_chapter_id',Chapter_id);
+					};
 					return {
-						init:init
+						init:init,
+						prevChapter:prevChapter,
+						nextChapter:nextChapter
 					};
 				}
 
-				function ReaderBaseFrame(){
+				function ReaderBaseFrame(container){
 					//todo 渲染基本的UI结构
+					function parseChapterData(jsonData){
+						var jsonObj = JSON.parse(jsonData);
+						//ES6特性：模板字符串
+						var html = `<h4>${jsonObj.t}</h4>`;
+						for(var i = 0;i<jsonObj.p.length;i++){
+							html+=`<p>${jsonObj.p[i]}</p>`;
+						}
+						return html;
+					}
+					return function(data){
+						container.html(parseChapterData(data));
+					}
 				}
 
 				function EventHandler(){
@@ -459,6 +539,22 @@
 						Dom.top_nav.hide();
 						Dom.font_container.hide();
 						Dom.font_button.removeClass('current');
+					});
+
+					/*
+
+					 */
+					$('#prev_button').click(function(){
+						//todo 获得章节的翻页数据->把数据拿出来渲染
+						readerModel.prevChapter(function(data){
+							readerUI(data);
+							//todo 得到数据后将数据显示在最上边的位置上
+						})
+					});
+					$('#next_button').click(function(){
+						readerModel.nextChapter(function(data){
+							readerUI(data);
+						})
 					})
 				}
 
